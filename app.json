@@ -3,6 +3,7 @@
     "name": "HelloWorldApp",
     "slug": "HelloWorldApp",
     "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,10 +21,22 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.huzaifaumer007.game2048",
+      "versionCode": 1,
+      "permissions": [],
+      "enableDangerousExperimentalLeanBuilds": true,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "830cea8c-5dad-436f-a5ae-b2116d34844b"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/830cea8c-5dad-436f-a5ae-b2116d34844b"
     }
   }
 }
