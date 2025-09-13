@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, ScrollView, BackHandler, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -77,6 +77,22 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Exit icon top-left */}
+      <TouchableOpacity
+        style={styles.exitButton}
+        onPress={() => {
+          if (Platform.OS === 'android') {
+            BackHandler.exitApp();
+          } else {
+            // iOS / web don't allow programmatic exit; show a hint instead
+            console.warn('Exit is only supported on Android.');
+          }
+        }}
+        accessibilityLabel="Exit app"
+        hitSlop={{ top: 8, left: 8, right: 8, bottom: 8 }}
+      >
+        <Text style={styles.exitText}>✕</Text>
+      </TouchableOpacity>
       <View style={styles.backgroundPattern} />
       
       <ScrollView 
@@ -149,6 +165,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
     position: 'relative',
+  },
+  exitButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(28,28,30,0.9)',
+    borderWidth: 1,
+    borderColor: '#2e2e2e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+  },
+  exitText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: -2,
   },
   scrollView: {
     flex: 1,

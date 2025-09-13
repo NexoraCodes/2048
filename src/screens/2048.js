@@ -17,6 +17,8 @@ const Game2048 = () => {
   // Track new tiles for animation
   const [newTiles, setNewTiles] = useState(new Set());
   const [tileAnimations, setTileAnimations] = useState({});
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [isMusicOn, setIsMusicOn] = useState(false);
 
   // Update screen dimensions on orientation change
   useEffect(() => {
@@ -865,6 +867,74 @@ const Game2048 = () => {
       textAlign: 'center',
       letterSpacing: 0.5,
     },
+    // Hamburger and Menu styles
+    hamburger: {
+      position: 'absolute',
+      top: 10,
+      left: 10,
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: 'rgba(28,28,30,0.9)',
+      borderWidth: 1,
+      borderColor: '#2e2e2e',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+    },
+    hamburgerText: {
+      color: '#fff',
+      fontSize: 20,
+      fontWeight: '700',
+      marginTop: -2,
+    },
+    menuBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    menuCard: {
+      width: '85%',
+      maxWidth: 360,
+      backgroundColor: '#1a1a1a',
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: '#2e2e2e',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 12,
+    },
+    menuTitle: {
+      color: '#ffffff',
+      fontSize: 18,
+      fontWeight: '800',
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    menuBtn: {
+      backgroundColor: '#2c2c2e',
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#48484a',
+      marginTop: 10,
+    },
+    menuBtnDisabled: {
+      opacity: 0.6,
+    },
+    menuBtnText: {
+      color: '#ffffff',
+      fontWeight: '700',
+      fontSize: 14,
+      letterSpacing: 0.5,
+    },
     instructions: {
       marginTop: dimensions.isLandscape ? 5 : 15,
       paddingVertical: dimensions.isTablet ? 16 : 12,
@@ -953,6 +1023,55 @@ const Game2048 = () => {
 
   return (
     <View style={responsiveStyles.container}>
+      {/* Hamburger Button */}
+      <TouchableOpacity
+        style={responsiveStyles.hamburger}
+        onPress={() => setMenuVisible(true)}
+        accessibilityLabel="Open menu"
+        hitSlop={{ top: 8, left: 8, right: 8, bottom: 8 }}
+      >
+        <Text style={responsiveStyles.hamburgerText}>≡</Text>
+      </TouchableOpacity>
+
+      {/* Menu Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={responsiveStyles.menuBackdrop} onPress={() => setMenuVisible(false)}>
+          <View style={responsiveStyles.menuCard}>
+            <Text style={responsiveStyles.menuTitle}>Menu</Text>
+            <TouchableOpacity
+              style={[responsiveStyles.menuBtn, !isMusicOn && responsiveStyles.menuBtnDisabled]}
+              onPress={() => {
+                // Placeholder for stopping music; integrate expo-av later if needed
+                if (isMusicOn) {
+                  setIsMusicOn(false);
+                  Alert.alert('Music', 'Music stopped.');
+                } else {
+                  Alert.alert('Music', 'No music is currently playing.');
+                }
+                setMenuVisible(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={responsiveStyles.menuBtnText}>Stop Music</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={responsiveStyles.menuBtn}
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate('Home');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={responsiveStyles.menuBtnText}>Back to Home</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
       <GameOverModal />
        
       {dimensions.isLandscape ? (
