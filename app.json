@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "HelloWorldApp",
-    "slug": "HelloWorldApp",
+    "name": "Merge 2468",
+    "slug": "merge-2468",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -24,7 +24,6 @@
       "package": "com.huzaifaumer007.game2048",
       "versionCode": 1,
       "permissions": [],
-      "enableDangerousExperimentalLeanBuilds": true,
       "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
@@ -32,11 +31,11 @@
     },
     "extra": {
       "eas": {
-        "projectId": "830cea8c-5dad-436f-a5ae-b2116d34844b"
+        "projectId": "040695f3-cc93-4036-a9d0-a06c69a3c0e3"
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/830cea8c-5dad-436f-a5ae-b2116d34844b"
+      "url": "https://u.expo.dev/040695f3-cc93-4036-a9d0-a06c69a3c0e3"
     }
   }
 }

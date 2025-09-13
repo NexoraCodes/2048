@@ -12,6 +12,11 @@ const Game2048 = () => {
   const [won, setWon] = useState(false);
   const [screenData, setScreenData] = useState(Dimensions.get('window'));
   const navigation = useNavigation();
+  // Floating +score popups
+  const [mergePopups, setMergePopups] = useState([]);
+  // Track new tiles for animation
+  const [newTiles, setNewTiles] = useState(new Set());
+  const [tileAnimations, setTileAnimations] = useState({});
 
   // Update screen dimensions on orientation change
   useEffect(() => {
@@ -53,10 +58,11 @@ const Game2048 = () => {
     const isTinyScreen = Math.min(width, height) < 250;
     
     // Reduced spacing for small screens
-    const headerHeight = isLandscape ? 70 : (isTinyScreen ? 70 : (isSmallScreen ? 80 : 100));
-    const scoreHeight = isLandscape ? 50 : (isTinyScreen ? 50 : (isSmallScreen ? 60 : 70));
-    const instructionsHeight = isLandscape ? 50 : (isTinyScreen ? 60 : (isSmallScreen ? 70 : 90));
-    const buttonHeight = isLandscape ? 40 : (isTinyScreen ? 40 : (isSmallScreen ? 45 : 50));
+    // Tighten top sections and reclaim space (we removed instructions/buttons)
+    const headerHeight = isLandscape ? 50 : (isTinyScreen ? 56 : (isSmallScreen ? 64 : 72));
+    const scoreHeight = isLandscape ? 40 : (isTinyScreen ? 42 : (isSmallScreen ? 48 : 56));
+    const instructionsHeight = 0; // no instructions panel anymore
+    const buttonHeight = 0; // no extra button row below grid
     const padding = isTablet ? 30 : (isTinyScreen ? 8 : (isSmallScreen ? 12 : 16));
     
     const availableWidth = width - (padding * 2);
@@ -67,17 +73,18 @@ const Game2048 = () => {
     let gridSize;
     
     if (isTablet) {
-      gridSize = Math.min(maxGridSize * 0.85, 450);
+      gridSize = Math.min(maxGridSize * 0.9, 480);
     } else if (isTinyScreen) {
-      gridSize = Math.min(maxGridSize * 0.98, 300);
+      gridSize = Math.min(maxGridSize * 0.99, 320);
     } else if (isSmallScreen) {
-      gridSize = Math.min(maxGridSize * 0.96, 320);
+      gridSize = Math.min(maxGridSize * 0.98, 340);
     } else {
-      gridSize = Math.min(maxGridSize * 0.9, 360);
+      gridSize = Math.min(maxGridSize * 0.95, 380);
     }
     
-    // Adjusted cell size calculation
-    const cellSize = (gridSize - (isTinyScreen ? 40 : 50)) / 4;
+    // Use 8px gap units. Leave a bit of extra right padding by budgeting 48px instead of 40px.
+    // This yields a slightly wider right gutter for visual breathing room.
+    const cellSize = (gridSize - 48) / 4;
     
     return {
       gridSize,
@@ -100,6 +107,34 @@ const Game2048 = () => {
 
   const dimensions = getResponsiveDimensions();
 
+  // Helper: trigger floating +score popups
+  const triggerMergePopups = (events) => {
+    if (!events || events.length === 0) return;
+    const created = events.map((evt, idx) => {
+      const id = `${Date.now()}-${idx}-${evt.value}`;
+      const animOpacity = new Animated.Value(1);
+      const animTranslateY = new Animated.Value(0);
+      return { id, ...evt, animOpacity, animTranslateY };
+    });
+    setMergePopups((prev) => [...prev, ...created]);
+    created.forEach((item) => {
+      Animated.parallel([
+        Animated.timing(item.animTranslateY, {
+          toValue: -20,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(item.animOpacity, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setMergePopups((prev) => prev.filter((p) => p.id !== item.id));
+      });
+    });
+  };
+
   // Initialize empty grid
   const initializeGrid = () => {
     return Array(4).fill().map(() => Array(4).fill(0));
@@ -120,6 +155,33 @@ const Game2048 = () => {
       const [x, y] = emptyCells[Math.floor(Math.random() * emptyCells.length)];
       const newGrid = currentGrid.map(row => [...row]);
       newGrid[x][y] = Math.random() < 0.9 ? 2 : 4;
+      
+      // Create scale animation for new tile
+      const tileKey = `${x}-${y}`;
+      const scaleAnim = new Animated.Value(0);
+      
+      setTileAnimations(prev => ({
+        ...prev,
+        [tileKey]: scaleAnim
+      }));
+      
+      // Start scale-in animation
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 200,
+        friction: 10,
+        useNativeDriver: true,
+      }).start(() => {
+        // Clean up animation after completion
+        setTimeout(() => {
+          setTileAnimations(prev => {
+            const updated = { ...prev };
+            delete updated[tileKey];
+            return updated;
+          });
+        }, 100);
+      });
+      
       return newGrid;
     }
     return currentGrid;
@@ -156,6 +218,8 @@ const Game2048 = () => {
     let newGrid = grid.map(row => [...row]);
     let moved = false;
     let newScore = score;
+    // collect merge events for +score popups
+    const mergeEvents = [];
 
     const moveLeft = () => {
       for (let i = 0; i < 4; i++) {
@@ -168,6 +232,8 @@ const Game2048 = () => {
             newScore += row[j];
             row.splice(j + 1, 1);
             merged[j] = true;
+            // popup at (i, j) for value row[j]
+            mergeEvents.push({ row: i, col: j, value: row[j] });
             if (row[j] === 2048 && !won) {
               setWon(true);
               Alert.alert('🎉 You Win!', 'Congratulations! You reached 2048!', [
@@ -191,15 +257,19 @@ const Game2048 = () => {
       for (let i = 0; i < 4; i++) {
         const row = newGrid[i].filter(cell => cell !== 0);
         const merged = [];
+        // temp store of merge indices before unshifting zeros
+        const rightMerges = [];
         
         for (let j = row.length - 1; j > 0; j--) {
           if (row[j] === row[j - 1] && !merged[j] && !merged[j - 1]) {
             row[j] *= 2;
             newScore += row[j];
+            const mergedValue = row[j]; // Store value before modifying array
             row.splice(j - 1, 1);
             merged[j] = true;
             j++;
-            if (row[j] === 2048 && !won) {
+            rightMerges.push({ rowIndex: i, tempIndex: j, value: mergedValue });
+            if (mergedValue === 2048 && !won) {
               setWon(true);
               Alert.alert('🎉 You Win!', 'Congratulations! You reached 2048!', [
                 { text: 'Play Again', onPress: initGame },
@@ -209,7 +279,12 @@ const Game2048 = () => {
           }
         }
         
+        const zerosToAdd = 4 - row.length;
         while (row.length < 4) row.unshift(0);
+        // convert temp indices to final col indices
+        rightMerges.forEach((m) => {
+          mergeEvents.push({ row: m.rowIndex, col: zerosToAdd + m.tempIndex, value: m.value });
+        });
         
         if (JSON.stringify(newGrid[i]) !== JSON.stringify(row)) {
           moved = true;
@@ -232,6 +307,7 @@ const Game2048 = () => {
             column[i] *= 2;
             newScore += column[i];
             column.splice(i + 1, 1);
+            mergeEvents.push({ row: i, col: j, value: column[i] });
             if (column[i] === 2048 && !won) {
               setWon(true);
               Alert.alert('🎉 You Win!', 'Congratulations! You reached 2048!', [
@@ -270,6 +346,7 @@ const Game2048 = () => {
             column[i] *= 2;
             newScore += column[i];
             column.splice(i + 1, 1);
+            mergeEvents.push({ row: 3 - i, col: j, value: column[i] });
             if (column[i] === 2048 && !won) {
               setWon(true);
               Alert.alert('🎉 You Win!', 'Congratulations! You reached 2048!', [
@@ -313,6 +390,15 @@ const Game2048 = () => {
       newGrid = addRandomTile(newGrid);
       setGrid(newGrid);
       setScore(newScore);
+      // trigger popups at merged positions
+      if (mergeEvents.length > 0) {
+        const eventsWithPixels = mergeEvents.map((evt) => {
+          const left = evt.col * (dimensions.cellSize + 8) + 4 + dimensions.cellSize / 2 - 10;
+          const top = evt.row * (dimensions.cellSize + 8) + 4 + dimensions.cellSize / 2 - 10;
+          return { left, top, value: evt.value };
+        });
+        triggerMergePopups(eventsWithPixels);
+      }
       
       if (isGameOver(newGrid)) {
         setGameOver(true);
@@ -357,25 +443,109 @@ const Game2048 = () => {
     }
   };
 
-  // Enhanced tile colors with gradient-like progression
+  // 3D tile colors with vibrant new color scheme
   const getTileStyle = (value) => {
     const colors = {
-      2: { bg: '#1e1e20', text: '#e5e5e7', border: '#333336' },
-      4: { bg: '#2a2a2d', text: '#e5e5e7', border: '#404043' },
-      8: { bg: '#ff9f0a', text: '#1c1c1e', border: '#ffb340' },
-      16: { bg: '#ff7b3d', text: '#ffffff', border: '#ff9466' },
-      32: { bg: '#ff5733', text: '#ffffff', border: '#ff7a5c' },
-      64: { bg: '#e91e63', text: '#ffffff', border: '#f06292' },
-      128: { bg: '#9c27b0', text: '#ffffff', border: '#ba68c8' },
-      256: { bg: '#673ab7', text: '#ffffff', border: '#9575cd' },
-      512: { bg: '#3f51b5', text: '#ffffff', border: '#7986cb' },
-      1024: { bg: '#2196f3', text: '#ffffff', border: '#64b5f6' },
-      2048: { bg: '#00bcd4', text: '#1c1c1e', border: '#4dd0e1' },
-      4096: { bg: '#009688', text: '#ffffff', border: '#4db6ac' },
-      8192: { bg: '#4caf50', text: '#ffffff', border: '#81c784' },
+      2: { 
+        bg: '#ff6b6b', 
+        topColor: '#ff8e8e', 
+        sideColor: '#e74c3c', 
+        text: '#ffffff', 
+        shadow: '#ff6b6b' 
+      },
+      4: { 
+        bg: '#4ecdc4', 
+        topColor: '#7dd3d8', 
+        sideColor: '#26a69a', 
+        text: '#ffffff', 
+        shadow: '#4ecdc4' 
+      },
+      8: { 
+        bg: '#45b7d1', 
+        topColor: '#74c7e3', 
+        sideColor: '#2980b9', 
+        text: '#ffffff', 
+        shadow: '#45b7d1' 
+      },
+      16: { 
+        bg: '#f9ca24', 
+        topColor: '#fdd835', 
+        sideColor: '#f39c12', 
+        text: '#2c3e50', 
+        shadow: '#f9ca24' 
+      },
+      32: { 
+        bg: '#f0932b', 
+        topColor: '#ffb74d', 
+        sideColor: '#e67e22', 
+        text: '#ffffff', 
+        shadow: '#f0932b' 
+      },
+      64: { 
+        bg: '#eb4d4b', 
+        topColor: '#ff7675', 
+        sideColor: '#c0392b', 
+        text: '#ffffff', 
+        shadow: '#eb4d4b' 
+      },
+      128: { 
+        bg: '#6c5ce7', 
+        topColor: '#a29bfe', 
+        sideColor: '#5b4cdb', 
+        text: '#ffffff', 
+        shadow: '#6c5ce7' 
+      },
+      256: { 
+        bg: '#a55eea', 
+        topColor: '#d1a3ff', 
+        sideColor: '#8e44ad', 
+        text: '#ffffff', 
+        shadow: '#a55eea' 
+      },
+      512: { 
+        bg: '#26de81', 
+        topColor: '#55efc4', 
+        sideColor: '#00b894', 
+        text: '#2c3e50', 
+        shadow: '#26de81' 
+      },
+      1024: { 
+        bg: '#fd79a8', 
+        topColor: '#fdcb6e', 
+        sideColor: '#e84393', 
+        text: '#ffffff', 
+        shadow: '#fd79a8' 
+      },
+      2048: { 
+        bg: '#fdcb6e', 
+        topColor: '#fff7d6', 
+        sideColor: '#f39c12', 
+        text: '#2c3e50', 
+        shadow: '#fdcb6e' 
+      },
+      4096: { 
+        bg: '#00b894', 
+        topColor: '#55efc4', 
+        sideColor: '#00a085', 
+        text: '#ffffff', 
+        shadow: '#00b894' 
+      },
+      8192: { 
+        bg: '#e17055', 
+        topColor: '#fab1a0', 
+        sideColor: '#d63031', 
+        text: '#ffffff', 
+        shadow: '#e17055' 
+      },
     };
     
-    return colors[value] || { bg: '#ff6b6b', text: '#ffffff', border: '#ff8a8a' };
+    return colors[value] || { 
+      bg: '#2d3436', 
+      topColor: '#636e72', 
+      sideColor: '#1e272e', 
+      text: '#ffffff', 
+      shadow: '#2d3436' 
+    };
   };
 
   // Improved responsive font sizing
@@ -536,11 +706,11 @@ const Game2048 = () => {
     },
   });
 
-  // Enhanced responsive styles with modern dark theme
+  // Jet black shiny theme UI styles
   const responsiveStyles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#0d0d0f', // Deep dark background
+      backgroundColor: '#000000', // Pure jet black background
       paddingHorizontal: dimensions.containerPadding,
       paddingTop: dimensions.isLandscape ? 15 : 25,
       paddingBottom: dimensions.isLandscape ? 10 : 20,
@@ -563,58 +733,67 @@ const Game2048 = () => {
       fontSize: dimensions.fontSize.title,
       fontWeight: '900',
       color: '#ffffff',
-      textShadowColor: 'rgba(0, 122, 255, 0.3)',
+      textShadowColor: 'rgba(255, 255, 255, 0.3)',
       textShadowOffset: { width: 0, height: 2 },
-      textShadowRadius: 4,
-      letterSpacing: 2,
+      textShadowRadius: 10,
+      letterSpacing: 3,
     },
     subtitle: {
       fontSize: dimensions.fontSize.subtitle,
-      color: '#8e8e93',
+      color: '#c0c0c0',
       marginTop: 4,
       textAlign: 'center',
       fontWeight: '500',
     },
     scoreContainer: {
-      flexDirection: 'column',
+      flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       width: dimensions.gridSize,
-      marginBottom: dimensions.isLandscape ? 8 : 15,
+      alignSelf: 'center',
+      marginBottom: dimensions.isLandscape ? 10 : 18,
       gap: 12,
     },
     scoreBox: {
-      backgroundColor: '#1c1c1e',
-      borderWidth: 2,
-      borderColor: '#2c2c2e',
-      padding: dimensions.isTablet ? 12 : 8,
-      borderRadius: 12,
-      flex: 1,
+      backgroundColor: '#1a1a1a',
+      borderWidth: 1,
+      borderColor: '#2e2e2e',
+      paddingVertical: dimensions.isTablet ? 12 : 10,
+      paddingHorizontal: dimensions.isTablet ? 16 : 14,
+      borderRadius: 14,
       alignItems: 'center',
+      justifyContent: 'center',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 4,
-      width:'100%'
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      elevation: 6,
+      flex: 1,
+      flexBasis: '48%',
+      alignSelf: 'stretch',
     },
     scoreLabel: {
-      color: '#8e8e93',
-      fontSize: dimensions.fontSize.subtitle * 0.85,
-      fontWeight: '600',
-      letterSpacing: 1,
+      color: '#b0b0b0',
+      fontSize: dimensions.isTablet ? 14 : 12,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      marginBottom: 2,
     },
     scoreValue: {
-      color: '#007aff',
-      fontSize: dimensions.fontSize.score,
-      fontWeight: '800',
+      color: '#ffb020',
+      fontSize: Math.max(dimensions.fontSize.score, 20),
+      fontWeight: '900',
       marginTop: 2,
+      // Use tabular numerals for steadier visual alignment where supported
+      // iOS only; ignored on Android without custom font
+      fontVariant: ['tabular-nums'],
     },
     highScoreValue: {
-      color: '#ff9f0a',
-      fontSize: dimensions.fontSize.score,
-      fontWeight: '800',
+      color: '#ffd166',
+      fontSize: Math.max(dimensions.fontSize.score, 20),
+      fontWeight: '900',
       marginTop: 2,
+      fontVariant: ['tabular-nums'],
     },
     newGameButton: {
       backgroundColor: '#007aff',
@@ -639,53 +818,47 @@ const Game2048 = () => {
     gridContainer: {
       width: dimensions.gridSize,
       height: dimensions.gridSize,
-      backgroundColor: '#1c1c1e',
-      borderRadius: 16,
-      padding: 15,
+      backgroundColor: '#1a1a1a',
+      borderRadius: 18,
+      padding: 0,
       alignSelf: 'center',
-      marginVertical: dimensions.isLandscape ? 5 : 10,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 8,
+      marginVertical: dimensions.isLandscape ? 6 : 12,
+      shadowColor: '#ffffff',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
+      elevation: 10,
       borderWidth: 2,
-      borderColor: '#2c2c2e',
+      borderColor: '#2e2e2e',
     },
     gridBackground: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       position: 'absolute',
-      top: 15,
-      left: 15,
+      top: 8,
+      left: 8,
       zIndex: 1,
     },
     cell: {
       width: dimensions.cellSize,
       height: dimensions.cellSize,
-      margin: 3,
-      backgroundColor: '#0d0d0f',
-      borderRadius: 8,
+      margin: 4,
+      backgroundColor: '#0a0a0a',
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#2c2c2e',
+      borderColor: '#2a2a2a',
     },
     tilesContainer: {
       position: 'absolute',
-      top: 15,
-      left: 15,
+      top: 8,
+      left: 8,
       zIndex: 2,
     },
     tile: {
       position: 'absolute',
-      borderRadius: 10,
+      borderRadius: 12,
       justifyContent: 'center',
       alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4,
-      shadowRadius: 4,
-      elevation: 5,
-      borderWidth: 1,
     },
     tileText: {
       fontWeight: '800',
@@ -696,14 +869,14 @@ const Game2048 = () => {
       marginTop: dimensions.isLandscape ? 5 : 15,
       paddingVertical: dimensions.isTablet ? 16 : 12,
       paddingHorizontal: dimensions.isTablet ? 20 : 16,
-      backgroundColor: '#1c1c1e',
-      borderRadius: 12,
+      backgroundColor: '#1a1a1a',
+      borderRadius: 16,
       width: dimensions.gridSize,
-      borderWidth: 1,
-      borderColor: '#2c2c2e',
+      borderWidth: 2,
+      borderColor: '#333333',
     },
     instructionsText: {
-      color: '#8e8e93',
+      color: '#c0c0c0',
       textAlign: 'center',
       marginBottom: 3,
       fontSize: dimensions.fontSize.instructions,
@@ -743,16 +916,18 @@ const Game2048 = () => {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      maxWidth: 300,
+      // Give more room so two score boxes can sit on one row in landscape
+      width: dimensions.isTablet ? 420 : Math.min(dimensions.gridSize, 360),
     },
     landscapeRightPanel: {
       alignItems: 'center',
       justifyContent: 'center',
     },
     landscapeScoreContainer: {
-      flexDirection: 'column',
+      flexDirection: 'row',
       width: '100%',
-      gap: 8,
+      gap: 12,
+      justifyContent: 'space-between',
     },
     landscapeInstructions: {
       marginTop: 15,
@@ -779,19 +954,13 @@ const Game2048 = () => {
   return (
     <View style={responsiveStyles.container}>
       <GameOverModal />
-        <TouchableOpacity 
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.8}
-            >
-              <Text style={responsiveStyles.backButtonText}>← Back to Home</Text>
-            </TouchableOpacity>
+       
       {dimensions.isLandscape ? (
         // Landscape Layout
         <View style={responsiveStyles.landscapeContainer}>
           <View style={responsiveStyles.landscapeLeftPanel}>
             <View style={responsiveStyles.header}>
               <Text style={responsiveStyles.title}>2048</Text>
-              <Text style={responsiveStyles.subtitle}>Join the tiles, get to 2048!</Text>
             </View>
             <View style={responsiveStyles.landscapeScoreContainer}>
               <View style={responsiveStyles.scoreBox}>
@@ -802,14 +971,6 @@ const Game2048 = () => {
                 <Text style={responsiveStyles.scoreLabel}>HIGH SCORE</Text>
                 <Text style={responsiveStyles.highScoreValue}>{highScore.toLocaleString()}</Text>
               </View>
-            </View>
-            <View style={responsiveStyles.landscapeInstructions}>
-              <Text style={responsiveStyles.instructionsText}>
-                Swipe or use arrow keys to move tiles
-              </Text>
-              <Text style={responsiveStyles.instructionsText}>
-                When two tiles with the same number touch, they merge!
-              </Text>
             </View>
           </View>
           <View style={responsiveStyles.landscapeRightPanel}>
@@ -834,43 +995,114 @@ const Game2048 = () => {
                         style={[
                           responsiveStyles.tile,
                           {
-                            backgroundColor: getTileStyle(cell).bg,
-                            borderColor: getTileStyle(cell).border,
-                            left: j * (dimensions.cellSize + 6) + 3,
-                            top: i * (dimensions.cellSize + 6) + 3,
+                            left: j * (dimensions.cellSize + 8) + 4,
+                            top: i * (dimensions.cellSize + 8) + 4,
                             width: dimensions.cellSize,
                             height: dimensions.cellSize,
                             zIndex: cell,
+                            transform: [{ 
+                              scale: tileAnimations[`${i}-${j}`] || 1 
+                            }],
                           },
                         ]}
                       >
-                        <Text 
-                          style={[
-                            responsiveStyles.tileText,
-                            { 
-                              color: getTileStyle(cell).text,
-                              fontSize: getTileFontSize(cell),
-                            }
-                          ]}
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.4}
-                        >
-                          {cell}
-                        </Text>
+                        {/* 3D Shadow Base */}
+                        <View style={{
+                          position: 'absolute',
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: getTileStyle(cell).sideColor,
+                          borderRadius: 12,
+                          top: 6,
+                          left: 6,
+                        }} />
+                        
+                        {/* 3D Side Panel */}
+                        <View style={{
+                          position: 'absolute',
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: getTileStyle(cell).sideColor,
+                          borderRadius: 12,
+                          top: 3,
+                          left: 3,
+                        }} />
+                        
+                        {/* 3D Top Surface */}
+                        <View style={[
+                          {
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: getTileStyle(cell).bg,
+                            borderRadius: 12,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            borderWidth: 2,
+                            borderColor: getTileStyle(cell).topColor,
+                            shadowColor: getTileStyle(cell).shadow,
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 8,
+                            elevation: 8,
+                          }
+                        ]}>
+                          {/* Inner highlight for 3D effect */}
+                          <View style={{
+                            position: 'absolute',
+                            top: 2,
+                            left: 2,
+                            right: 2,
+                            height: '30%',
+                            backgroundColor: getTileStyle(cell).topColor,
+                            borderRadius: 8,
+                            opacity: 0.4,
+                          }} />
+                          
+                          <Text 
+                            style={[
+                              responsiveStyles.tileText,
+                              { 
+                                color: getTileStyle(cell).text,
+                                fontSize: getTileFontSize(cell),
+                                textShadowColor: 'rgba(0,0,0,0.3)',
+                                textShadowOffset: { width: 1, height: 1 },
+                                textShadowRadius: 2,
+                                zIndex: 10,
+                              }
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.4}
+                          >
+                            {cell}
+                          </Text>
+                        </View>
                       </Animated.View>
                     ) : null
                   )
                 )}
+                {mergePopups.map((p) => (
+                  <Animated.Text
+                    key={p.id}
+                    style={{
+                      position: 'absolute',
+                      left: p.left,
+                      top: p.top,
+                      color: '#ff9f0a',
+                      fontWeight: '900',
+                      textShadowColor: 'rgba(0,0,0,0.6)',
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 2,
+                      transform: [{ translateY: p.animTranslateY }],
+                      opacity: p.animOpacity,
+                      zIndex: 9999,
+                    }}
+                  >
+                    {`+${p.value}`}
+                  </Animated.Text>
+                ))}
               </View>
             </View>
-            <TouchableOpacity 
-              style={responsiveStyles.backButton}
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.8}
-            >
-              <Text style={responsiveStyles.backButtonText}>← Back to Home</Text>
-            </TouchableOpacity>
           </View>
         </View>
       ) : (
@@ -879,9 +1111,8 @@ const Game2048 = () => {
           <View style={responsiveStyles.gameContent}>
             <View style={responsiveStyles.header}>
               <Text style={responsiveStyles.title}>2048</Text>
-              <Text style={responsiveStyles.subtitle}>Join the tiles, get to 2048!</Text>
             </View>
-  
+
             <View style={responsiveStyles.scoreContainer}>
               <View style={responsiveStyles.scoreBox}>
                 <Text style={responsiveStyles.scoreLabel}>SCORE</Text>
@@ -915,47 +1146,114 @@ const Game2048 = () => {
                         style={[
                           responsiveStyles.tile,
                           {
-                            backgroundColor: getTileStyle(cell).bg,
-                            borderColor: getTileStyle(cell).border,
                             left: j * (dimensions.cellSize + 6) + 3,
                             top: i * (dimensions.cellSize + 6) + 3,
                             width: dimensions.cellSize,
                             height: dimensions.cellSize,
                             zIndex: cell,
+                            transform: [{ 
+                              scale: tileAnimations[`${i}-${j}`] || 1 
+                            }],
                           },
                         ]}
                       >
-                        <Text 
-                          style={[
-                            responsiveStyles.tileText,
-                            { 
-                              color: getTileStyle(cell).text,
-                              fontSize: getTileFontSize(cell),
-                            }
-                          ]}
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.4}
-                        >
-                          {cell}
-                        </Text>
+                        {/* 3D Shadow Base */}
+                        <View style={{
+                          position: 'absolute',
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: getTileStyle(cell).sideColor,
+                          borderRadius: 12,
+                          top: 6,
+                          left: 6,
+                        }} />
+                        
+                        {/* 3D Side Panel */}
+                        <View style={{
+                          position: 'absolute',
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: getTileStyle(cell).sideColor,
+                          borderRadius: 12,
+                          top: 3,
+                          left: 3,
+                        }} />
+                        
+                        {/* 3D Top Surface */}
+                        <View style={[
+                          {
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: getTileStyle(cell).bg,
+                            borderRadius: 12,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            borderWidth: 2,
+                            borderColor: getTileStyle(cell).topColor,
+                            shadowColor: getTileStyle(cell).shadow,
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 8,
+                            elevation: 8,
+                          }
+                        ]}>
+                          {/* Inner highlight for 3D effect */}
+                          <View style={{
+                            position: 'absolute',
+                            top: 2,
+                            left: 2,
+                            right: 2,
+                            height: '30%',
+                            backgroundColor: getTileStyle(cell).topColor,
+                            borderRadius: 8,
+                            opacity: 0.4,
+                          }} />
+                          
+                          <Text 
+                            style={[
+                              responsiveStyles.tileText,
+                              { 
+                                color: getTileStyle(cell).text,
+                                fontSize: getTileFontSize(cell),
+                                textShadowColor: 'rgba(0,0,0,0.3)',
+                                textShadowOffset: { width: 1, height: 1 },
+                                textShadowRadius: 2,
+                                zIndex: 10,
+                              }
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.4}
+                          >
+                            {cell}
+                          </Text>
+                        </View>
                       </Animated.View>
                     ) : null
                   )
                 )}
+                {mergePopups.map((p) => (
+                  <Animated.Text
+                    key={p.id}
+                    style={{
+                      position: 'absolute',
+                      left: p.left,
+                      top: p.top,
+                      color: '#ffffff',
+                      fontWeight: '900',
+                      textShadowColor: 'rgba(0,0,0,0.6)',
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 2,
+                      transform: [{ translateY: p.animTranslateY }],
+                      opacity: p.animOpacity,
+                      zIndex: 9999,
+                    }}
+                  >
+                    {`+${p.value}`}
+                  </Animated.Text>
+                ))}
               </View>
             </View>
-  
-            <View style={responsiveStyles.instructions}>
-              <Text style={responsiveStyles.instructionsText}>
-                Swipe or use arrow keys to move tiles
-              </Text>
-              <Text style={responsiveStyles.instructionsText}>
-                When two tiles with the same number touch, they merge!
-              </Text>
-            </View>
-  
-            
           </View>
         </View>
       )}

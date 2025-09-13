@@ -2,11 +2,14 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Game2048Screen from '../screens/2048';
 import HomeScreen from '../screens/HomeScreen';
+import { StatusBar } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
+    <>
+    <StatusBar hidden />
     <Stack.Navigator 
       initialRouteName="Home"
       screenOptions={{
@@ -36,5 +39,6 @@ export default function AppNavigator() {
         }}
       />
     </Stack.Navigator>
+    </>
   );
 }

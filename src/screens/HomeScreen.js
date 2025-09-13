@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -9,6 +9,8 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
+  const [titleAnim] = useState(new Animated.Value(0));
+  const [buttonAnim] = useState(new Animated.Value(0));
   const [highScore, setHighScore] = useState(0);
 
   useEffect(() => {
@@ -25,17 +27,34 @@ export default function HomeScreen() {
     
     loadHighScore();
     
-    Animated.parallel([
+    Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 800,
         useNativeDriver: true,
       }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 3,
-        useNativeDriver: true,
-      })
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleAnim, {
+          toValue: 1,
+          duration: 600,
+          delay: 200,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonAnim, {
+          toValue: 1,
+          duration: 500,
+          delay: 400,
+          easing: Easing.out(Easing.back(1.5)),
+          useNativeDriver: true,
+        })
+      ])
     ]).start();
   }, []);
 
@@ -58,32 +77,69 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.content,
-          { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }
-        ]}
+      <View style={styles.backgroundPattern} />
+      
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
       >
-        <Text style={styles.title}>2048</Text>
-        <Text style={styles.subtitle}>Join the numbers and get to the 2048 tile!</Text>
-        
-        <TouchableOpacity 
-          style={styles.playButton}
-          onPress={startGame}
-          activeOpacity={0.8}
+        <Animated.View 
+          style={[
+            styles.content,
+            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }
+          ]}
         >
-          <Text style={styles.playButtonText}>PLAY NOW</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.highScoreContainer}>
-          <Text style={styles.highScoreLabel}>BEST SCORE</Text>
-          <Text style={styles.highScoreValue}>{highScore.toLocaleString()}</Text>
-        </View>
-        
-        <Text style={styles.instructions}>
-          Use arrow keys or swipe to move the tiles. When two tiles with the same number touch, they merge into one!
-        </Text>
-      </Animated.View>
+          <Animated.View style={[
+            styles.titleContainer,
+            { 
+              opacity: titleAnim,
+              transform: [{ 
+                translateY: titleAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-50, 0]
+                })
+              }]
+            }
+          ]}>
+            <Text style={styles.title}>2048</Text>
+            <View style={styles.titleUnderline} />
+          </Animated.View>
+          
+          <Text style={styles.subtitle}>Join the numbers and get to the 2048 tile!</Text>
+          
+          <Animated.View style={[
+            styles.buttonContainer,
+            { 
+              opacity: buttonAnim,
+              transform: [{ scale: buttonAnim }]
+            }
+          ]}>
+            <TouchableOpacity 
+              style={styles.playButton}
+              onPress={startGame}
+              activeOpacity={0.7}
+            >
+              <View style={styles.buttonGlow} />
+              <Text style={styles.playButtonText}>PLAY NOW</Text>
+            </TouchableOpacity>
+          </Animated.View>
+          
+          <View style={styles.statsContainer}>
+            <View style={styles.highScoreContainer}>
+              <Text style={styles.highScoreLabel}>BEST SCORE</Text>
+              <Text style={styles.highScoreValue}>{highScore.toLocaleString()}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.instructionsContainer}>
+            <Text style={styles.instructions}>
+              Use arrow keys or swipe to move the tiles. When two tiles with the same number touch, they merge into one!
+            </Text>
+          </View>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 }
@@ -91,74 +147,148 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#000000',
+    position: 'relative',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    minHeight: height,
+  },
+  backgroundPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.03,
+    backgroundColor: 'transparent',
   },
   content: {
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
+    zIndex: 1,
+  },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 72,
-    fontWeight: 'bold',
-    color: '#f8f8f8',
-    marginBottom: 10,
-    textShadowColor: 'rgba(255, 255, 255, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
+    fontSize: 84,
+    fontWeight: '900',
+    color: '#ffffff',
+    textShadowColor: 'rgba(255, 255, 255, 0.4)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 15,
+    letterSpacing: 6,
+  },
+  titleUnderline: {
+    width: 120,
+    height: 4,
+    backgroundColor: '#ffffff',
+    marginTop: 8,
+    borderRadius: 2,
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#e6e6e6',
+    fontSize: 20,
+    color: '#c0c0c0',
     textAlign: 'center',
-    marginBottom: 40,
-    fontStyle: 'italic',
+    marginBottom: 50,
+    fontWeight: '300',
+    lineHeight: 28,
+    paddingHorizontal: 20,
+  },
+  buttonContainer: {
+    marginBottom: 50,
   },
   playButton: {
-    backgroundColor: '#8f7a66',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 50,
-    marginBottom: 40,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 18,
+    paddingHorizontal: 50,
+    borderRadius: 30,
+    elevation: 12,
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    borderWidth: 2,
+    borderColor: '#333333',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  buttonGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 30,
   },
   playButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 1.5,
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 2,
+    zIndex: 1,
+  },
+  statsContainer: {
+    marginBottom: 40,
   },
   highScoreContainer: {
-    backgroundColor: '#bbada0',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 20,
+    paddingHorizontal: 25,
+    borderRadius: 20,
     alignItems: 'center',
-    marginBottom: 30,
-    minWidth: 150,
+    minWidth: 180,
+    borderWidth: 2,
+    borderColor: '#333333',
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 10,
   },
   highScoreLabel: {
-    color: '#eee4da',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    color: '#c0c0c0',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    letterSpacing: 1,
   },
   highScoreValue: {
-    color: 'white',
-    fontSize: 28,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: '800',
+    textShadowColor: 'rgba(255, 255, 255, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  instructionsContainer: {
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    backgroundColor: 'rgba(26, 26, 26, 0.6)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#333333',
   },
   instructions: {
-    color: '#b8b8b8',
+    color: '#c0c0c0',
     textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: 20,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '400',
   },
 });
