@@ -473,7 +473,7 @@ const Game2048 = () => {
         bg: '#f9ca24', 
         topColor: '#fdd835', 
         sideColor: '#f39c12', 
-        text: '#2c3e50', 
+        text: '#ffffff', 
         shadow: '#f9ca24' 
       },
       32: { 
@@ -870,8 +870,8 @@ const Game2048 = () => {
     // Hamburger and Menu styles
     hamburger: {
       position: 'absolute',
-      top: 10,
-      left: 10,
+      top: 35,
+      left: 35,
       width: 36,
       height: 36,
       borderRadius: 10,
@@ -1079,7 +1079,7 @@ const Game2048 = () => {
         <View style={responsiveStyles.landscapeContainer}>
           <View style={responsiveStyles.landscapeLeftPanel}>
             <View style={responsiveStyles.header}>
-              <Text style={responsiveStyles.title}>2048</Text>
+              <Text style={responsiveStyles.title}>Merge 2468</Text>
             </View>
             <View style={responsiveStyles.landscapeScoreContainer}>
               <View style={responsiveStyles.scoreBox}>
@@ -1229,7 +1229,7 @@ const Game2048 = () => {
         <View style={responsiveStyles.scrollContainer}>
           <View style={responsiveStyles.gameContent}>
             <View style={responsiveStyles.header}>
-              <Text style={responsiveStyles.title}>2048</Text>
+              <Text style={responsiveStyles.title}>Merge 2468</Text>
             </View>
 
             <View style={responsiveStyles.scoreContainer}>

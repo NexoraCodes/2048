@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Game2048Screen from '../screens/2048';
 import HomeScreen from '../screens/HomeScreen';
+import SplashScreen from '../screens/SplashScreen';
 import { StatusBar } from 'react-native';
 
 const Stack = createNativeStackNavigator();
@@ -11,7 +12,7 @@ export default function AppNavigator() {
     <>
     <StatusBar hidden />
     <Stack.Navigator 
-      initialRouteName="Home"
+      initialRouteName="Splash"
       screenOptions={{
         headerStyle: {
           backgroundColor: '#faf8ef',
@@ -22,6 +23,14 @@ export default function AppNavigator() {
         },
       }}
     >
+      <Stack.Screen 
+        name="Splash" 
+        component={SplashScreen} 
+        options={{ 
+          title: 'Splash',
+          headerShown: false
+        }}
+      />
       <Stack.Screen 
         name="Home" 
         component={HomeScreen} 

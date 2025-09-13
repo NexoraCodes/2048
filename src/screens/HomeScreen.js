@@ -119,11 +119,11 @@ export default function HomeScreen() {
               }]
             }
           ]}>
-            <Text style={styles.title}>2048</Text>
+            <Text style={styles.title}>Merge 2468</Text>
             <View style={styles.titleUnderline} />
           </Animated.View>
           
-          <Text style={styles.subtitle}>Join the numbers and get to the 2048 tile!</Text>
+          <Text style={styles.subtitle}>Merge the numbers and get to the 2048 tile!</Text>
           
           <Animated.View style={[
             styles.buttonContainer,
@@ -149,11 +149,7 @@ export default function HomeScreen() {
             </View>
           </View>
           
-          <View style={styles.instructionsContainer}>
-            <Text style={styles.instructions}>
-              Use arrow keys or swipe to move the tiles. When two tiles with the same number touch, they merge into one!
-            </Text>
-          </View>
+          
         </Animated.View>
       </ScrollView>
     </View>
@@ -168,8 +164,8 @@ const styles = StyleSheet.create({
   },
   exitButton: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 35,
+    left: 35,
     width: 36,
     height: 36,
     borderRadius: 10,
@@ -184,7 +180,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '800',
-    marginTop: -2,
   },
   scrollView: {
     flex: 1,
@@ -224,6 +219,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 15,
     letterSpacing: 6,
+    textAlign: 'center',
   },
   titleUnderline: {
     width: 120,

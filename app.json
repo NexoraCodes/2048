@@ -2,17 +2,11 @@
   "expo": {
     "name": "Merge 2468",
     "slug": "merge-2468",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -21,8 +15,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.huzaifaumer007.game2048",
-      "versionCode": 1,
+      "package": "com.nexoracodes.merge2468",
+      "versionCode": 2,
       "permissions": [],
       "softwareKeyboardLayoutMode": "pan"
     },
