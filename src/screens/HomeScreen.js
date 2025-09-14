@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, ScrollView, BackHandler, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, ScrollView, BackHandler, Platform, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -58,6 +58,19 @@ export default function HomeScreen() {
     ]).start();
   }, []);
 
+  // Handle Android hardware back button to confirm exit
+  useEffect(() => {
+    const backAction = () => {
+      if (Platform.OS === 'android') {
+        confirmExit();
+        return true; // prevent default behavior
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => subscription.remove();
+  }, []);
+
   const startGame = () => {
     Animated.sequence([
       Animated.timing(scaleAnim, {
@@ -75,6 +88,18 @@ export default function HomeScreen() {
     });
   };
 
+  const confirmExit = () => {
+    Alert.alert(
+      'Exit App',
+      'Are you sure you want to exit?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Exit icon top-left */}
@@ -82,10 +107,10 @@ export default function HomeScreen() {
         style={styles.exitButton}
         onPress={() => {
           if (Platform.OS === 'android') {
-            BackHandler.exitApp();
+            confirmExit();
           } else {
-            // iOS / web don't allow programmatic exit; show a hint instead
-            console.warn('Exit is only supported on Android.');
+            // iOS / web don't allow programmatic exit; show an informational alert instead
+            Alert.alert('Not supported', 'Closing the app is only supported on Android.');
           }
         }}
         accessibilityLabel="Exit app"
