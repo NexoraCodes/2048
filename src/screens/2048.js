@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Alert, Platform, Modal, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useAudio } from '../contexts/AudioContext';
+import MusicToggleButton from '../components/MusicToggleButton';
 
 const Game2048 = () => {
   const [grid, setGrid] = useState([]);
@@ -18,15 +21,27 @@ const Game2048 = () => {
   const [newTiles, setNewTiles] = useState(new Set());
   const [tileAnimations, setTileAnimations] = useState({});
   const [menuVisible, setMenuVisible] = useState(false);
-  const [isMusicOn, setIsMusicOn] = useState(false);
+  const { isMusicOn, toggleMusic, playBackgroundMusic, stopMusic } = useAudio();
 
   // Update screen dimensions on orientation change
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
       setScreenData(window);
     });
-    return () => subscription?.remove();
-  }, []);
+    return () => {
+      subscription?.remove();
+      stopMusic(); // Stop music when component unmounts
+    };
+  }, [stopMusic]);
+  
+  // Play background music when game starts
+  useEffect(() => {
+    playBackgroundMusic();
+    
+    return () => {
+      stopMusic(); // Cleanup on unmount
+    };
+  }, [playBackgroundMusic, stopMusic]);
 
   // Load high score on mount
   useEffect(() => {
@@ -281,11 +296,11 @@ const Game2048 = () => {
           }
         }
         
-        const zerosToAdd = 4 - row.length;
+        // Fill with zeros
         while (row.length < 4) row.unshift(0);
         // convert temp indices to final col indices
         rightMerges.forEach((m) => {
-          mergeEvents.push({ row: m.rowIndex, col: zerosToAdd + m.tempIndex, value: m.value });
+          mergeEvents.push({ row: m.rowIndex, col: 4 - m.tempIndex, value: m.value });
         });
         
         if (JSON.stringify(newGrid[i]) !== JSON.stringify(row)) {
@@ -728,8 +743,20 @@ const Game2048 = () => {
       alignItems: 'center',
     },
     header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: dimensions.isLandscape ? 8 : 15,
+      marginBottom: 20,
+      paddingHorizontal: 10,
+      width: '100%',
+      maxWidth: 500,
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    musicButton: {
+      marginRight: 10,
     },
     title: {
       fontSize: dimensions.fontSize.title,
@@ -1045,19 +1072,18 @@ const Game2048 = () => {
             <Text style={responsiveStyles.menuTitle}>Menu</Text>
             <TouchableOpacity
               style={[responsiveStyles.menuBtn, !isMusicOn && responsiveStyles.menuBtnDisabled]}
-              onPress={() => {
-                // Placeholder for stopping music; integrate expo-av later if needed
+              onPress={async () => {
                 if (isMusicOn) {
-                  setIsMusicOn(false);
-                  Alert.alert('Music', 'Music stopped.');
+                  await toggleMusic();
+                  
                 } else {
-                  Alert.alert('Music', 'No music is currently playing.');
+                  await toggleMusic();
                 }
                 setMenuVisible(false);
               }}
               activeOpacity={0.8}
             >
-              <Text style={responsiveStyles.menuBtnText}>Stop Music</Text>
+              <Text style={responsiveStyles.menuBtnText}>{isMusicOn ? 'Stop Music' : 'Music Off'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={responsiveStyles.menuBtn}

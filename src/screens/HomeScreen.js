@@ -2,16 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Easing, ScrollView, BackHandler, Platform, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useAudio } from '../contexts/AudioContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const { isMusicOn, playBackgroundMusic, stopMusic } = useAudio();
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
   const [titleAnim] = useState(new Animated.Value(0));
   const [buttonAnim] = useState(new Animated.Value(0));
   const [highScore, setHighScore] = useState(0);
+
+  // Play background music when component mounts
+  useEffect(() => {
+    playBackgroundMusic();
+    
+    return () => {
+      // Cleanup if needed
+    };
+  }, [playBackgroundMusic]);
 
   useEffect(() => {
     const loadHighScore = async () => {
@@ -26,6 +38,7 @@ export default function HomeScreen() {
     };
     
     loadHighScore();
+    playBackgroundMusic();
     
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -102,14 +115,26 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Exit icon top-left */}
+      {/* Volume Toggle Button */}
       <TouchableOpacity
-        style={styles.exitButton}
+        style={[styles.volumeButton, { top: 35, right: 35 }]}
+        onPress={isMusicOn ? stopMusic : playBackgroundMusic}
+        activeOpacity={0.7}
+      >
+        <MaterialIcons 
+          name={isMusicOn ? 'volume-up' : 'volume-off'} 
+          size={24} 
+          color="#ffffff" 
+        />
+      </TouchableOpacity>
+      
+      {/* Exit icon top-right */}
+      <TouchableOpacity
+        style={[styles.exitButton, { top: 35, left: 35 }]}
         onPress={() => {
           if (Platform.OS === 'android') {
             confirmExit();
           } else {
-            // iOS / web don't allow programmatic exit; show an informational alert instead
             Alert.alert('Not supported', 'Closing the app is only supported on Android.');
           }
         }}
@@ -173,8 +198,6 @@ export default function HomeScreen() {
               <Text style={styles.highScoreValue}>{highScore.toLocaleString()}</Text>
             </View>
           </View>
-          
-          
         </Animated.View>
       </ScrollView>
     </View>
@@ -185,12 +208,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+    paddingTop: Platform.OS === 'android' ? 30 : 50,
     position: 'relative',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  musicButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 100,
+  },
+  volumeButton: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(28,28,30,0.9)',
+    borderWidth: 1,
+    borderColor: '#2e2e2e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   exitButton: {
     position: 'absolute',
     top: 35,
-    left: 35,
+    right: 35,
     width: 36,
     height: 36,
     borderRadius: 10,
@@ -199,7 +252,7 @@ const styles = StyleSheet.create({
     borderColor: '#2e2e2e',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 9999,
+    zIndex: 999,
   },
   exitText: {
     color: '#fff',
